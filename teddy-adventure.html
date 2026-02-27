@@ -168,7 +168,7 @@ function addTouch(id,prop){
 addTouch('tbL','left'); addTouch('tbR','right'); addTouch('tbJ','jump');
 
 // ── CONSTANTS ────────────────────────────────
-const GRAVITY=0.5, SPEED=5.2, JUMP=-14;
+const GRAVITY=0.42, SPEED=5.5, JUMP=-15;
 const TW=40, TH=50;
 const WORLD_H=5500;
 
@@ -195,25 +195,32 @@ function buildWorld(){
   // Clouds
   for(let i=0;i<22;i++) G.clouds.push({x:Math.random()*W,y:-100-Math.random()*WORLD_H*0.95,w:70+Math.random()*110,op:.12+Math.random()*0.18});
 
-  // Platforms going up
-  let py=-200;
-  for(let i=0;i<58;i++){
-    const pw=100+Math.random()*200;
-    const px=30+Math.random()*(W-pw-30);
-    const col=pCol(py);
-    G.platforms.push({x:px,y:py,w:pw,h:20,col});
+  // Platforms going up — VERY close together, always reachable!
+  let py = -140;
+  let lastPx = W / 2 - 100;
+  for(let i = 0; i < 70; i++){
+    const pw = 180 + Math.random() * 200; // very wide platforms
+    // Small horizontal shift — never too far left or right
+    const maxShift = 120;
+    let px = lastPx + (Math.random() - 0.5) * maxShift * 2;
+    px = Math.max(20, Math.min(W - pw - 20, px));
+    lastPx = px + pw / 2;
 
-    // balls
-    const nb=Math.random()<0.65?2:1;
-    for(let b=0;b<nb;b++){
-      if(pw>60) G.ballItems.push({x:px+20+b*55+Math.random()*Math.max(10,pw-90),y:py-32,got:false,bob:Math.random()*6.28});
+    const col = pCol(py);
+    G.platforms.push({x:px, y:py, w:pw, h:22, col});
+
+    // balls on platform
+    const nb = Math.random() < 0.65 ? 2 : 1;
+    for(let b = 0; b < nb; b++){
+      if(pw > 60) G.ballItems.push({x:px+20+b*55+Math.random()*Math.max(10,pw-90), y:py-32, got:false, bob:Math.random()*6.28});
     }
-    // hazards (increasing with height)
-    const hc=i<8?0.1:i<25?0.28:0.44;
-    if(Math.random()<hc && pw>80){
-      G.hazards.push({x:px+22+Math.random()*(pw-55),y:py-28,type:Math.random()<.5?'needle':'heart',bob:Math.random()*6.28});
+    // hazards — fewer, only on big platforms
+    const hc = i < 10 ? 0.06 : i < 30 ? 0.18 : 0.28;
+    if(Math.random() < hc && pw > 140){
+      G.hazards.push({x:px+22+Math.random()*(pw-55), y:py-28, type:Math.random()<.5?'needle':'heart', bob:Math.random()*6.28});
     }
-    py-=120+Math.random()*140;
+    // VERY small vertical gap — max 65px so teddy can always jump it easily!
+    py -= 55 + Math.random() * 30;
   }
   G.treasure={x:W/2,y:py+120,reached:false};
 }
@@ -279,7 +286,9 @@ function physics(){
   else{
     for(const h of g.hazards){
       if(g.tx+TW-8>h.x-14&&g.tx+8<h.x+14&&g.ty+TH-8>h.y-14&&g.ty+8<h.y+14){
-        loseHeart(); g.invincible=90; break;
+        g.invincible=120; // set FIRST so loseHeart can't double-trigger
+        loseHeart();
+        break;
       }
     }
   }
@@ -299,11 +308,12 @@ function physics(){
 }
 
 function loseHeart(){
-  G.hearts=Math.max(0,G.hearts-1);
-  G.flashTimer=30;
-  spawnP(G.tx+TW/2,G.ty+TH/2,'#ff3333',16);
+  G.hearts = Math.max(0, G.hearts - 1);
+  G.flashTimer = 40;
+  // screen coords for particles
+  spawnP(G.tx + TW/2, G.ty - G.camY + TH/2, '#ff3333', 20);
   updateHUD();
-  if(G.hearts===0) gameOver();
+  if(G.hearts === 0) gameOver();
 }
 
 function spawnP(x,y,col,n){
