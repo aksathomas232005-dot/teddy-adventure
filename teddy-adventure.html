@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teddy's Sky Treasure 🧸</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;900&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#1a0533; overflow:hidden; height:100vh; width:100vw; font-family:'Nunito',sans-serif; }
+
+  #welcome {
+    position:fixed; inset:0; z-index:100;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:linear-gradient(160deg,#ffd6f0,#ffe8b0 50%,#c8f0ff);
+    transition:opacity .8s;
+  }
+  #welcome.hidden { opacity:0; pointer-events:none; }
+  .w-card {
+    background:rgba(255,255,255,.75); backdrop-filter:blur(12px);
+    border-radius:40px; padding:48px 56px; text-align:center;
+    box-shadow:0 20px 60px rgba(160,80,200,.25); max-width:460px; width:90%; position:relative; z-index:2;
+  }
+  .w-teddy { font-size:80px; display:block; animation:bob 2s ease-in-out infinite; margin-bottom:8px; }
+  @keyframes bob { 0%,100%{transform:translateY(0) rotate(-3deg)} 50%{transform:translateY(-12px) rotate(3deg)} }
+  .w-title { font-family:'Fredoka One',cursive; font-size:2.2rem; color:#7b3fa0; margin-bottom:8px; }
+  .w-sub { font-size:1.05rem; color:#a0607a; line-height:1.6; margin-bottom:28px; }
+  .btn-row { display:flex; gap:14px; justify-content:center; }
+  .btn {
+    font-family:'Fredoka One',cursive; font-size:1.15rem; padding:13px 34px;
+    border:none; border-radius:50px; cursor:pointer;
+    box-shadow:0 6px 20px rgba(0,0,0,.15); transition:transform .15s, box-shadow .15s;
+  }
+  .btn:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(0,0,0,.22); }
+  .btn-yes { background:linear-gradient(135deg,#ff85c8,#ff5a9d); color:#fff; }
+  .btn-no  { background:linear-gradient(135deg,#b8c8ff,#8aa0f5); color:#fff; }
+  #noMsg { margin-top:16px; font-size:.95rem; color:#c06090; min-height:22px; }
+
+  #gameWrap { position:fixed; inset:0; display:none; }
+  #gameCanvas { display:block; }
+
+  #hud {
+    position:fixed; top:14px; left:0; right:0;
+    display:flex; justify-content:space-between; align-items:center;
+    padding:0 20px; z-index:10; pointer-events:none;
+  }
+  .hbox {
+    background:rgba(255,255,255,.18); backdrop-filter:blur(8px);
+    border-radius:18px; padding:7px 16px;
+    color:#fff; font-family:'Fredoka One',cursive; font-size:1.05rem;
+    display:flex; align-items:center; gap:6px;
+  }
+  .heart  { font-size:1.3rem; transition:opacity .3s; }
+  .heart.lost { opacity:.2; }
+
+  #overlay {
+    position:fixed; inset:0; z-index:50;
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.6); backdrop-filter:blur(5px);
+  }
+  #overlay.show { display:flex; }
+  .o-card {
+    background:linear-gradient(135deg,#fff0f8,#f0eaff);
+    border-radius:36px; padding:46px 56px; text-align:center;
+    box-shadow:0 24px 60px rgba(0,0,0,.35);
+    animation:popIn .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes popIn { from{transform:scale(.5);opacity:0} to{transform:scale(1);opacity:1} }
+  .o-em    { font-size:72px; display:block; margin-bottom:14px; }
+  .o-title { font-family:'Fredoka One',cursive; font-size:1.9rem; color:#7b3fa0; margin-bottom:8px; }
+  .o-sub   { font-size:.98rem; color:#a0607a; line-height:1.6; margin-bottom:22px; white-space:pre-line; }
+
+  #controls {
+    position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
+    background:rgba(255,255,255,.14); backdrop-filter:blur(6px);
+    border-radius:18px; padding:7px 18px;
+    color:rgba(255,255,255,.82); font-size:.82rem; z-index:10; white-space:nowrap;
+  }
+  #touchBtns {
+    position:fixed; bottom:52px; left:0; right:0;
+    display:flex; justify-content:space-between; padding:0 24px; z-index:20; pointer-events:none;
+  }
+  .tb-group { display:flex; gap:10px; pointer-events:all; }
+  .tb {
+    background:rgba(255,255,255,.22); border:none; border-radius:14px;
+    padding:14px 22px; font-size:1rem; color:#fff;
+    font-family:'Fredoka One',cursive; cursor:pointer; user-select:none;
+  }
+</style>
+</head>
+<body>
+
+<div id="welcome">
+  <div class="w-card">
+    <span class="w-teddy">🧸</span>
+    <div class="w-title">Hey there! 👋</div>
+    <p class="w-sub">Your little teddy is here!<br>Are you feeling a little… <strong>bored</strong> today?</p>
+    <div class="btn-row">
+      <button class="btn btn-yes" onclick="startGame()">Yes! Let's Play! 🎉</button>
+      <button class="btn btn-no"  onclick="sayNo()">Nope I'm good 😊</button>
+    </div>
+    <p id="noMsg"></p>
+  </div>
+</div>
+
+<div id="gameWrap">
+  <canvas id="gameCanvas"></canvas>
+  <div id="hud">
+    <div class="hbox">⚽ <span id="ballCount">0</span></div>
+    <div class="hbox" style="gap:3px">
+      <span class="heart" id="h1">❤️</span>
+      <span class="heart" id="h2">❤️</span>
+      <span class="heart" id="h3">❤️</span>
+    </div>
+    <div class="hbox">🏔️ <span id="ht">0</span>m</div>
+  </div>
+  <div id="controls">⬅ ➡ Arrow Keys to Move &nbsp;|&nbsp; Space or ↑ to Jump</div>
+  <div id="touchBtns">
+    <div class="tb-group">
+      <button class="tb" id="tbL">◀</button>
+      <button class="tb" id="tbR">▶</button>
+    </div>
+    <button class="tb" id="tbJ">⬆ Jump</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="o-card">
+    <span class="o-em"  id="oEm">🎉</span>
+    <div class="o-title" id="oTitle">You Won!</div>
+    <p class="o-sub"    id="oSub">Amazing!</p>
+    <button class="btn btn-yes" onclick="restartGame()">Play Again 🧸</button>
+  </div>
+</div>
+
+<script>
+// ── WELCOME ──────────────────────────────────
+function sayNo(){
+  const m=["Aww! Teddy will wait for you 🧸","Come back anytime! 🌟","Teddy is always here 💕"];
+  document.getElementById('noMsg').textContent=m[Math.floor(Math.random()*m.length)];
+}
+function startGame(){
+  document.getElementById('welcome').classList.add('hidden');
+  setTimeout(()=>{
+    document.getElementById('welcome').style.display='none';
+    document.getElementById('gameWrap').style.display='block';
+    initGame();
+  },800);
+}
+
+// ── CANVAS ───────────────────────────────────
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
+resize(); window.addEventListener('resize',resize);
+
+// ── INPUT ────────────────────────────────────
+const keys={};
+window.addEventListener('keydown',e=>{ keys[e.code]=true; ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)&&e.preventDefault(); });
+window.addEventListener('keyup',e=>{ keys[e.code]=false; });
+const touch={left:false,right:false,jump:false};
+function addTouch(id,prop){
+  const el=document.getElementById(id);
+  ['touchstart','mousedown'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();touch[prop]=true;},{passive:false}));
+  ['touchend','mouseup'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();touch[prop]=false;},{passive:false}));
+}
+addTouch('tbL','left'); addTouch('tbR','right'); addTouch('tbJ','jump');
+
+// ── CONSTANTS ────────────────────────────────
+const GRAVITY=0.5, SPEED=5.2, JUMP=-14;
+const TW=40, TH=50;
+const WORLD_H=5500;
+
+// ── STATE ────────────────────────────────────
+let G={};
+
+function initGame(){
+  G={ running:true, balls:0, hearts:3, camY:0,
+      tx:0, ty:0, vx:0, vy:0, onGround:false, facingRight:true,
+      invincible:0, flashTimer:0, legAnim:0, armAnim:0,
+      platforms:[], ballItems:[], hazards:[], particles:[],
+      bgStars:[], clouds:[], treasure:null };
+  buildWorld(); updateHUD(); requestAnimationFrame(loop);
+}
+
+function buildWorld(){
+  // Ground platform
+  G.platforms.push({x:-600,y:0,w:2000,h:30,col:'#4caf50'});
+  // Start teddy on ground
+  G.tx=W/2-TW/2; G.ty=-TH; G.vx=0; G.vy=0; G.camY=0;
+
+  // Stars
+  for(let i=0;i<150;i++) G.bgStars.push({x:Math.random()*W*2,y:-Math.random()*WORLD_H,r:.8+Math.random()*2,t:Math.random()*6.28});
+  // Clouds
+  for(let i=0;i<22;i++) G.clouds.push({x:Math.random()*W,y:-100-Math.random()*WORLD_H*0.95,w:70+Math.random()*110,op:.12+Math.random()*0.18});
+
+  // Platforms going up
+  let py=-200;
+  for(let i=0;i<58;i++){
+    const pw=100+Math.random()*200;
+    const px=30+Math.random()*(W-pw-30);
+    const col=pCol(py);
+    G.platforms.push({x:px,y:py,w:pw,h:20,col});
+
+    // balls
+    const nb=Math.random()<0.65?2:1;
+    for(let b=0;b<nb;b++){
+      if(pw>60) G.ballItems.push({x:px+20+b*55+Math.random()*Math.max(10,pw-90),y:py-32,got:false,bob:Math.random()*6.28});
+    }
+    // hazards (increasing with height)
+    const hc=i<8?0.1:i<25?0.28:0.44;
+    if(Math.random()<hc && pw>80){
+      G.hazards.push({x:px+22+Math.random()*(pw-55),y:py-28,type:Math.random()<.5?'needle':'heart',bob:Math.random()*6.28});
+    }
+    py-=120+Math.random()*140;
+  }
+  G.treasure={x:W/2,y:py+120,reached:false};
+}
+
+function pCol(y){
+  const p=Math.abs(y)/WORLD_H;
+  if(p<0.2) return '#5dba52';
+  if(p<0.4) return '#3d9bd4';
+  if(p<0.6) return '#8b5cf6';
+  if(p<0.8) return '#ec4899';
+  return '#f59e0b';
+}
+
+// ── PHYSICS ──────────────────────────────────
+function physics(){
+  const g=G;
+  const goL=keys['ArrowLeft'] ||keys['KeyA']||touch.left;
+  const goR=keys['ArrowRight']||keys['KeyD']||touch.right;
+  const doJ=keys['Space']||keys['ArrowUp']||keys['KeyW']||touch.jump;
+
+  if(goL){g.vx-=0.9;g.facingRight=false;}
+  if(goR){g.vx+=0.9;g.facingRight=true;}
+  g.vx*=0.80; g.vx=Math.max(-SPEED,Math.min(SPEED,g.vx));
+
+  if(doJ&&g.onGround){ g.vy=JUMP; g.onGround=false; spawnP(g.tx+TW/2,g.ty+TH,'#fff',6); }
+
+  g.vy+=GRAVITY; g.tx+=g.vx; g.ty+=g.vy;
+
+  if(g.tx+TW<0) g.tx=W;
+  if(g.tx>W)    g.tx=-TW;
+  if(g.ty>200){ g.tx=W/2-TW/2; g.ty=-TH; g.vx=0; g.vy=0; g.camY=0; }
+
+  // Platform collisions (all in world space)
+  g.onGround=false;
+  for(const p of g.platforms){
+    const py = p.y; // world Y
+    if(g.vy>=0 && g.tx+TW-4>p.x && g.tx+4<p.x+p.w && g.ty+TH>py && g.ty+TH<py+p.h+16){
+      g.ty=py-TH; g.vy=0; g.onGround=true;
+    }
+  }
+
+  // Animation counters
+  if(Math.abs(g.vx)>0.4&&g.onGround) g.legAnim+=0.2;
+  if(!g.onGround) g.armAnim+=0.12;
+
+  // Camera: keep teddy at 60% from top of screen
+  const targetCam = g.ty - H * 0.6;
+  g.camY += (targetCam - g.camY) * 0.09;
+  g.camY = Math.min(g.camY, 0); // never scroll below start
+
+  // Collect balls (all world coordinates)
+  const t=Date.now()/1000;
+  for(const b of g.ballItems){
+    if(b.got) continue;
+    b.bob+=0.06;
+    if(g.tx+TW>b.x-16&&g.tx<b.x+16&&g.ty+TH>b.y-16&&g.ty<b.y+16){
+      b.got=true; g.balls++; spawnP(b.x, b.y-g.camY,'#ffe100',12); updateHUD();
+    }
+  }
+
+  // Hazards (all world coordinates)
+  if(g.invincible>0){ g.invincible--; }
+  else{
+    for(const h of g.hazards){
+      if(g.tx+TW-8>h.x-14&&g.tx+8<h.x+14&&g.ty+TH-8>h.y-14&&g.ty+8<h.y+14){
+        loseHeart(); g.invincible=90; break;
+      }
+    }
+  }
+
+  // Treasure (world coordinates)
+  if(g.treasure&&!g.treasure.reached){
+    if(g.tx+TW>g.treasure.x-50&&g.tx<g.treasure.x+50&&g.ty+TH>g.treasure.y-50&&g.ty<g.treasure.y+50){
+      g.treasure.reached=true; winGame();
+    }
+  }
+
+  document.getElementById('ht').textContent=Math.max(0,Math.round(Math.abs(g.ty)/28));
+
+  g.particles=g.particles.filter(p=>p.life>0);
+  for(const p of g.particles){ p.x+=p.vx; p.y+=p.vy; p.vy+=0.15; p.life--; }
+  if(g.flashTimer>0) g.flashTimer--;
+}
+
+function loseHeart(){
+  G.hearts=Math.max(0,G.hearts-1);
+  G.flashTimer=30;
+  spawnP(G.tx+TW/2,G.ty+TH/2,'#ff3333',16);
+  updateHUD();
+  if(G.hearts===0) gameOver();
+}
+
+function spawnP(x,y,col,n){
+  for(let i=0;i<n;i++) G.particles.push({x,y,vx:(Math.random()-.5)*8,vy:(Math.random()-.5)*8-2,color:col,life:28+Math.random()*22,r:3+Math.random()*4});
+}
+
+function updateHUD(){
+  document.getElementById('ballCount').textContent=G.balls;
+  for(let i=1;i<=3;i++) document.getElementById('h'+i).classList.toggle('lost',i>G.hearts);
+}
+
+// ── DRAW TEDDY ───────────────────────────────
+function drawTeddy(x,y,right,leg,arm,inv){
+  if(inv>0&&Math.floor(inv/5)%2===0) return; // blink when hurt
+
+  ctx.save();
+  if(!right){ ctx.translate(x+TW/2,0); ctx.scale(-1,1); ctx.translate(-(x+TW/2),0); }
+
+  const cx=x+TW/2, cy=y+TH/2;
+  const BR='#c68642', DB='#a0622e', CR='#f5deb3', PK='#ff9eb5';
+
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.2)';
+  ctx.beginPath(); ctx.ellipse(cx,y+TH+3,TW/2-2,6,0,0,Math.PI*2); ctx.fill();
+
+  // legs
+  const ls=Math.sin(leg)*9;
+  ctx.fillStyle=DB;
+  ctx.beginPath(); roundRectPath(cx-14,y+TH-15+ls,11,18,5); ctx.fill();
+  ctx.beginPath(); roundRectPath(cx+3,y+TH-15-ls,11,18,5); ctx.fill();
+  ctx.fillStyle=BR;
+  ctx.beginPath(); ctx.ellipse(cx-9,y+TH+3+ls,9,6,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+9,y+TH+3-ls,9,6,0,0,Math.PI*2); ctx.fill();
+
+  // body
+  ctx.fillStyle=BR;
+  ctx.beginPath(); roundRectPath(cx-14,cy-5,28,24,9); ctx.fill();
+
+  // belly patch
+  ctx.fillStyle=CR;
+  ctx.beginPath(); ctx.ellipse(cx,cy+6,10,10,0,0,Math.PI*2); ctx.fill();
+
+  // arms
+  const as=G.onGround?0:Math.sin(arm)*14;
+  ctx.fillStyle=BR;
+  ctx.beginPath(); roundRectPath(cx-24,cy-7+as,12,18,6); ctx.fill();
+  ctx.beginPath(); roundRectPath(cx+12,cy-7-as,12,18,6); ctx.fill();
+  ctx.fillStyle=DB;
+  ctx.beginPath(); ctx.ellipse(cx-18,cy+12+as,7,7,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+18,cy+12-as,7,7,0,0,Math.PI*2); ctx.fill();
+
+  // head
+  ctx.fillStyle=BR;
+  ctx.beginPath(); ctx.arc(cx,cy-16,19,0,Math.PI*2); ctx.fill();
+
+  // ears
+  ctx.fillStyle=BR;
+  ctx.beginPath(); ctx.arc(cx-15,cy-32,9,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx+15,cy-32,9,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=PK;
+  ctx.beginPath(); ctx.arc(cx-15,cy-32,5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx+15,cy-32,5,0,Math.PI*2); ctx.fill();
+
+  // snout
+  ctx.fillStyle=CR;
+  ctx.beginPath(); ctx.ellipse(cx,cy-10,10,8,0,0,Math.PI*2); ctx.fill();
+  // nose
+  ctx.fillStyle='#5d3a1a';
+  ctx.beginPath(); ctx.ellipse(cx,cy-14,4.5,3.5,0,0,Math.PI*2); ctx.fill();
+  // smile
+  ctx.strokeStyle='#5d3a1a'; ctx.lineWidth=1.8;
+  ctx.beginPath(); ctx.arc(cx,cy-9,5,0.15,Math.PI-0.15); ctx.stroke();
+
+  // eyes
+  ctx.fillStyle='#2c1600';
+  ctx.beginPath(); ctx.arc(cx-7,cy-20,3.5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx+7,cy-20,3.5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(cx-6,cy-21,1.2,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx+8,cy-21,1.2,0,Math.PI*2); ctx.fill();
+
+  // bow tie
+  ctx.fillStyle='#ff4488';
+  ctx.beginPath(); ctx.moveTo(cx-7,cy-1); ctx.lineTo(cx,cy+3); ctx.lineTo(cx-7,cy+7); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx+7,cy-1); ctx.lineTo(cx,cy+3); ctx.lineTo(cx+7,cy+7); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#cc0055';
+  ctx.beginPath(); ctx.arc(cx,cy+3,3,0,Math.PI*2); ctx.fill();
+
+  ctx.restore();
+}
+
+function roundRectPath(x,y,w,h,r){
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+w,y,r);
+}
+
+// ── DRAW BALL ────────────────────────────────
+function drawBall(x,y){
+  const grd=ctx.createRadialGradient(x,y,2,x,y,22);
+  grd.addColorStop(0,'rgba(255,235,80,.55)'); grd.addColorStop(1,'rgba(255,200,0,0)');
+  ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(x,y,22,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#f0f0f0'; ctx.beginPath(); ctx.arc(x,y,13,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#111';
+  ctx.beginPath();
+  for(let i=0;i<5;i++){ const a=i/5*Math.PI*2-Math.PI/2; i?ctx.lineTo(x+Math.cos(a)*6,y+Math.sin(a)*6):ctx.moveTo(x+Math.cos(a)*6,y+Math.sin(a)*6); }
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='#333'; ctx.lineWidth=1;
+  for(let i=0;i<6;i++){ const a=i/6*Math.PI*2; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.cos(a)*13,y+Math.sin(a)*13); ctx.stroke(); }
+}
+
+// ── DRAW NEEDLE ──────────────────────────────
+function drawNeedle(x,y){
+  const grd=ctx.createRadialGradient(x,y,2,x,y,20);
+  grd.addColorStop(0,'rgba(255,60,60,.4)'); grd.addColorStop(1,'rgba(255,0,0,0)');
+  ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(x,y,20,0,Math.PI*2); ctx.fill();
+  for(let i=0;i<3;i++){
+    ctx.save(); ctx.translate(x,y); ctx.rotate(-0.3+i*0.3);
+    ctx.fillStyle='#ddd'; ctx.beginPath(); ctx.moveTo(0,-20); ctx.lineTo(2,10); ctx.lineTo(-2,10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#999'; ctx.fillRect(-2,4,4,6); ctx.restore();
+  }
+}
+
+// ── DRAW BROKEN HEART ────────────────────────
+function drawBrokenHeart(x,y){
+  const grd=ctx.createRadialGradient(x,y,2,x,y,20);
+  grd.addColorStop(0,'rgba(200,0,80,.4)'); grd.addColorStop(1,'rgba(200,0,80,0)');
+  ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(x,y,20,0,Math.PI*2); ctx.fill();
+  ctx.save(); ctx.translate(x,y-6); ctx.scale(0.6,0.6);
+  ctx.fillStyle='#cc0044';
+  ctx.beginPath();
+  ctx.moveTo(0,16); ctx.bezierCurveTo(-22,4,-24,-14,-10,-16); ctx.bezierCurveTo(-4,-17,0,-8,0,-8);
+  ctx.bezierCurveTo(0,-8,4,-17,10,-16); ctx.bezierCurveTo(24,-14,22,4,0,16); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(0,-8); ctx.lineTo(4,0); ctx.lineTo(-3,6); ctx.lineTo(3,16); ctx.stroke();
+  ctx.restore();
+}
+
+// ── DRAW TREASURE ────────────────────────────
+function drawTreasure(x,y,t){
+  const pulse=.75+.25*Math.sin(t*3);
+  const grd=ctx.createRadialGradient(x,y,5,x,y,75*pulse);
+  grd.addColorStop(0,'rgba(255,235,80,.55)'); grd.addColorStop(1,'rgba(255,180,0,0)');
+  ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(x,y,75*pulse,0,Math.PI*2); ctx.fill();
+  const bob=Math.sin(t*2)*6;
+  ctx.fillStyle='#8B4513';
+  ctx.beginPath(); ctx.beginPath(); roundRectPath(x-30,y+bob+6,60,32,7); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#A0522D';
+  ctx.beginPath(); roundRectPath(x-30,y+bob-16,60,26,7); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#6B3410';
+  ctx.beginPath(); ctx.arc(x,y+bob-15,30,Math.PI,0); ctx.fill();
+  ctx.strokeStyle='#DAA520'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(x-30,y+bob+6); ctx.lineTo(x+30,y+bob+6); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x,y+bob-15,30,Math.PI,0); ctx.stroke();
+  ctx.fillStyle='#DAA520';
+  ctx.beginPath(); ctx.arc(x,y+bob-4,7,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#B8860B'; ctx.fillRect(x-4.5,y+bob-4,9,7);
+  for(let i=0;i<7;i++){
+    const a=t*2+i/7*Math.PI*2, sr=40+10*Math.sin(t*3+i);
+    const sx=x+Math.cos(a)*sr, sy2=y+bob+Math.sin(a)*sr*0.7;
+    ctx.fillStyle=`hsl(${45+i*18},100%,72%)`;
+    ctx.beginPath();
+    ctx.moveTo(sx,sy2-5); ctx.lineTo(sx+2,sy2-1); ctx.lineTo(sx+5,sy2);
+    ctx.lineTo(sx+2,sy2+1); ctx.lineTo(sx,sy2+5);
+    ctx.lineTo(sx-2,sy2+1); ctx.lineTo(sx-5,sy2);
+    ctx.lineTo(sx-2,sy2-1); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle='rgba(255,255,180,.95)'; ctx.font="bold 14px 'Fredoka One',cursive"; ctx.textAlign='center';
+  ctx.fillText('✨ SKY TREASURE ✨',x,y+bob-60);
+}
+
+// ── MAIN DRAW ────────────────────────────────
+function draw(){
+  const g=G, t=Date.now()/1000;
+
+  // sky
+  const p=Math.min(1,Math.abs(g.camY)/WORLD_H);
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  if(p<.25){sky.addColorStop(0,'#0d0120');sky.addColorStop(1,'#2a0850');}
+  else if(p<.55){sky.addColorStop(0,'#020817');sky.addColorStop(1,'#0e2060');}
+  else{sky.addColorStop(0,'#000308');sky.addColorStop(1,'#040c30');}
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+
+  // stars
+  for(const s of g.bgStars){
+    const sy=s.y-g.camY;
+    if(sy<-5||sy>H+5) continue;
+    ctx.globalAlpha=.4+.6*Math.sin(t*1.5+s.t);
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(((s.x%(W+50))+W+50)%(W+50),sy,s.r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // clouds
+  for(const c of g.clouds){
+    const cy=c.y-g.camY;
+    if(cy<-70||cy>H+70) continue;
+    ctx.globalAlpha=c.op; ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.ellipse(c.x,cy,c.w/2,c.w/5,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(c.x-c.w*.28,cy-c.w*.12,c.w*.28,c.w*.16,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(c.x+c.w*.22,cy-c.w*.08,c.w*.22,c.w*.15,0,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // platforms
+  for(const p2 of g.platforms){
+    const sy=p2.y-g.camY;
+    if(sy>H+40||sy<-40) continue;
+    ctx.fillStyle=p2.col;
+    ctx.beginPath(); roundRectPath(p2.x,sy,p2.w,p2.h,8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.22)';
+    ctx.beginPath(); roundRectPath(p2.x,sy,p2.w,7,8); ctx.closePath(); ctx.fill();
+  }
+
+  // balls
+  for(const b of g.ballItems){
+    if(b.got) continue;
+    const bsy=b.y-g.camY+Math.sin(t*2+b.bob)*4;
+    if(bsy<-40||bsy>H+40) continue;
+    drawBall(b.x,bsy);
+  }
+
+  // hazards
+  for(const h of g.hazards){
+    const hsy=h.y-g.camY+Math.sin(t*1.5+h.bob)*3;
+    if(hsy<-40||hsy>H+40) continue;
+    if(h.type==='needle') drawNeedle(h.x,hsy);
+    else drawBrokenHeart(h.x,hsy);
+  }
+
+  // treasure
+  if(g.treasure&&!g.treasure.reached){
+    const tsy=g.treasure.y-g.camY;
+    if(tsy>-160&&tsy<H+160) drawTreasure(g.treasure.x,tsy,t);
+    if(tsy<-60){
+      ctx.fillStyle='rgba(255,235,80,.92)'; ctx.font="bold 14px 'Fredoka One',cursive"; ctx.textAlign='center';
+      ctx.fillText('🏆 TREASURE THIS WAY ▲', W/2, 46+Math.abs(Math.sin(t*3))*6);
+    }
+  }
+
+  // TEDDY - convert world coords to screen coords by subtracting camY
+  drawTeddy(g.tx, g.ty - g.camY, g.facingRight, g.legAnim, g.armAnim, g.invincible);
+
+  // particles
+  for(const p3 of g.particles){
+    ctx.globalAlpha=Math.max(0,p3.life/50);
+    ctx.fillStyle=p3.color; ctx.beginPath(); ctx.arc(p3.x,p3.y,p3.r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // hit flash
+  if(g.flashTimer>0){ ctx.fillStyle=`rgba(255,50,50,${g.flashTimer/55})`; ctx.fillRect(0,0,W,H); }
+}
+
+// ── GAME OVER / WIN ──────────────────────────
+function gameOver(){
+  G.running=false;
+  document.getElementById('oEm').textContent='💔';
+  document.getElementById('oTitle').textContent='Oh no! Teddy fell...';
+  document.getElementById('oSub').textContent=`Teddy collected ${G.balls} ball${G.balls!==1?'s':''} but ran out of hearts.\nThe treasure is still waiting! Try again? 🧸`;
+  document.getElementById('overlay').classList.add('show');
+}
+function winGame(){
+  G.running=false;
+  document.getElementById('oEm').textContent='🏆✨';
+  document.getElementById('oTitle').textContent='Yay! Teddy got the treasure!';
+  document.getElementById('oSub').textContent=`WOW! Teddy collected ${G.balls} balls and reached the sky!\nYou are AMAZING! 🌟🧸`;
+  document.getElementById('overlay').classList.add('show');
+  let c=0; const ci=setInterval(()=>{ spawnP(Math.random()*W,Math.random()*H*.5,`hsl(${Math.random()*360},90%,65%)`,5); if(++c>45) clearInterval(ci); },80);
+}
+function restartGame(){
+  document.getElementById('overlay').classList.remove('show');
+  G.running=false;
+  setTimeout(()=>{
+    G={ running:true, balls:0, hearts:3, camY:0, tx:0, ty:0, vx:0, vy:0,
+        onGround:false, facingRight:true, invincible:0, flashTimer:0, legAnim:0, armAnim:0,
+        platforms:[], ballItems:[], hazards:[], particles:[], bgStars:[], clouds:[], treasure:null };
+    buildWorld(); updateHUD(); requestAnimationFrame(loop);
+  },50);
+}
+
+// ── LOOP ─────────────────────────────────────
+function loop(){ if(!G.running) return; physics(); draw(); requestAnimationFrame(loop); }
+</script>
+</body>
+</html>
