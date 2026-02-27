@@ -178,7 +178,7 @@ let G={};
 function initGame(){
   G={ running:true, balls:0, hearts:3, camY:0,
       tx:0, ty:0, vx:0, vy:0, onGround:false, facingRight:true,
-      invincible:0, flashTimer:0, legAnim:0, armAnim:0,
+      invincible:0, flashTimer:0, legAnim:0, armAnim:0, fallTimer:0,
       platforms:[], ballItems:[], hazards:[], particles:[],
       bgStars:[], clouds:[], treasure:null };
   buildWorld(); updateHUD(); requestAnimationFrame(loop);
@@ -195,32 +195,32 @@ function buildWorld(){
   // Clouds
   for(let i=0;i<22;i++) G.clouds.push({x:Math.random()*W,y:-100-Math.random()*WORLD_H*0.95,w:70+Math.random()*110,op:.12+Math.random()*0.18});
 
-  // Platforms going up — VERY close together, always reachable!
-  let py = -140;
+  // Platforms going up — perfect balance!
+  let py = -150;
   let lastPx = W / 2 - 100;
-  for(let i = 0; i < 70; i++){
-    const pw = 180 + Math.random() * 200; // very wide platforms
-    // Small horizontal shift — never too far left or right
-    const maxShift = 120;
+  for(let i = 0; i < 65; i++){
+    const pw = 150 + Math.random() * 150; // good size platforms
+    // Medium horizontal shift
+    const maxShift = 150;
     let px = lastPx + (Math.random() - 0.5) * maxShift * 2;
     px = Math.max(20, Math.min(W - pw - 20, px));
     lastPx = px + pw / 2;
 
     const col = pCol(py);
-    G.platforms.push({x:px, y:py, w:pw, h:22, col});
+    G.platforms.push({x:px, y:py, w:pw, h:20, col});
 
     // balls on platform
     const nb = Math.random() < 0.65 ? 2 : 1;
     for(let b = 0; b < nb; b++){
       if(pw > 60) G.ballItems.push({x:px+20+b*55+Math.random()*Math.max(10,pw-90), y:py-32, got:false, bob:Math.random()*6.28});
     }
-    // hazards — fewer, only on big platforms
-    const hc = i < 10 ? 0.06 : i < 30 ? 0.18 : 0.28;
-    if(Math.random() < hc && pw > 140){
+    // hazards — balanced
+    const hc = i < 10 ? 0.08 : i < 30 ? 0.22 : 0.32;
+    if(Math.random() < hc && pw > 120){
       G.hazards.push({x:px+22+Math.random()*(pw-55), y:py-28, type:Math.random()<.5?'needle':'heart', bob:Math.random()*6.28});
     }
-    // VERY small vertical gap — max 65px so teddy can always jump it easily!
-    py -= 55 + Math.random() * 30;
+    // Perfect gap — fun to jump!
+    py -= 80 + Math.random() * 30;
   }
   G.treasure={x:W/2,y:py+120,reached:false};
 }
@@ -251,7 +251,51 @@ function physics(){
 
   if(g.tx+TW<0) g.tx=W;
   if(g.tx>W)    g.tx=-TW;
-  if(g.ty>200){ g.tx=W/2-TW/2; g.ty=-TH; g.vx=0; g.vy=0; g.camY=0; }
+
+  // Track how long teddy has been falling
+  if(g.vy > 2 && !g.onGround){
+    g.fallTimer = (g.fallTimer||0) + 1;
+  } else {
+    g.fallTimer = 0;
+  }
+
+  // After falling for 50 frames (less than 1 second), catch on nearest platform below
+  if(g.fallTimer > 50){
+    g.fallTimer = 0;
+    // Find nearest platform below teddy
+    let bestPlat = null;
+    let bestDist = Infinity;
+    for(const p of g.platforms){
+      if(p.y > g.ty){ // platform is below teddy
+        const dist = p.y - g.ty;
+        if(dist < bestDist){
+          bestDist = dist;
+          bestPlat = p;
+        }
+      }
+    }
+    // If no platform below, find nearest one above (last platform teddy was on)
+    if(!bestPlat){
+      let bestAbove = Infinity;
+      for(const p of g.platforms){
+        const dist = Math.abs(p.y - g.ty);
+        if(dist < bestAbove){
+          bestAbove = dist;
+          bestPlat = p;
+        }
+      }
+    }
+    if(bestPlat){
+      g.tx = bestPlat.x + bestPlat.w/2 - TW/2;
+      g.ty = bestPlat.y - TH;
+      g.vx = 0; g.vy = 0;
+      g.onGround = true;
+      spawnP(g.tx+TW/2, (g.ty - g.camY)+TH, '#ffcc00', 14);
+    }
+  }
+
+  // Absolute safety net
+  if(g.ty > 300){ g.tx=W/2-TW/2; g.ty=-TH; g.vx=0; g.vy=0; g.camY=0; g.fallTimer=0; }
 
   // Platform collisions (all in world space)
   g.onGround=false;
